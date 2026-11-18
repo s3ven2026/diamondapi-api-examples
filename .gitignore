@@ -1,0 +1,17 @@
+# Your key lives here: never commit it.
+.env
+.env.*
+!.env.example
+
+# Cursors the results examples save between runs
+.results-cursor
+
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+vendor/
+.DS_Store
+.idea/
+.vscode/
