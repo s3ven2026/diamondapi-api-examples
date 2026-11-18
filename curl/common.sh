@@ -45,6 +45,3 @@ api() {
   done
 }
 
-open_table_ids() { # open_table_ids LIMIT  ->  "tb_a,tb_b"
-  api "/v1/casino/tables" | jq -r --argjson n "$1" '[.tables[] | select(.status == "OPEN") | .id][:$n] | join(",")'
-}

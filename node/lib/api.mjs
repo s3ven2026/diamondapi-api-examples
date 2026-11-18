@@ -39,18 +39,20 @@ async function pace() {
   lastCall = Date.now()
 }
 
-// GET a path. Retries 429 rate_limited (after Retry-After) and 503 starting.
+// GET a path, or POST `body` as JSON. Retries 429 rate_limited (after Retry-After) and 503 starting.
 // Returns { status, data, headers }; status 304 has data = null.
-export async function get(path, params = {}, extraHeaders = {}) {
+export async function request(path, params = {}, extraHeaders = {}, body) {
   const url = new URL(BASE + path)
   for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v)
   for (let attempt = 0; ; attempt++) {
     await pace()
-    const res = await fetch(url, { headers: headers(extraHeaders) })
+    const res = body === undefined
+      ? await fetch(url, { headers: headers(extraHeaders) })
+      : await fetch(url, { method: 'POST', headers: headers({ 'Content-Type': 'application/json', ...extraHeaders }), body: JSON.stringify(body) })
     if (res.status === 304) return { status: 304, data: null, headers: res.headers }
-    const body = await res.text()
+    const text = await res.text()
     let data = null
-    try { data = body ? JSON.parse(body) : null } catch { /* not JSON */ }
+    try { data = text ? JSON.parse(text) : null } catch { /* not JSON */ }
     if (res.ok) return { status: res.status, data, headers: res.headers }
     const code = data?.code || 'http_' + res.status
     const retryable = (res.status === 429 && code === 'rate_limited') || (res.status === 503 && code === 'starting')
@@ -60,17 +62,12 @@ export async function get(path, params = {}, extraHeaders = {}) {
       await sleep(after * 1000)
       continue
     }
-    throw new ApiError(res.status, code, data?.message || body.slice(0, 200), res.headers.get('x-request-id'))
+    throw new ApiError(res.status, code, data?.message || text.slice(0, 200), res.headers.get('x-request-id'))
   }
 }
 
-export const getJSON = async (path, params) => (await get(path, params)).data
-
-// The first tables taking bets now, for examples that need a few to work with.
-export async function openTableIds(limit) {
-  const { tables } = await getJSON('/v1/casino/tables')
-  return tables.filter((t) => t.status === 'OPEN').slice(0, limit).map((t) => t.id)
-}
+export const getJSON = async (path, params) => (await request(path, params)).data
+export const postJSON = async (path, body) => (await request(path, {}, {}, body)).data
 
 // Print an ApiError cleanly and exit; anything else is a bug, so rethrow it.
 export function run(main) {

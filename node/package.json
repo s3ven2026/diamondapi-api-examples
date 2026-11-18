@@ -2,16 +2,15 @@
   "name": "diamondapi-api-examples",
   "version": "1.0.0",
   "private": true,
-  "description": "Node examples for the Diamond casino API. No dependencies.",
+  "description": "Node examples for the Diamond casino API: game list, launch, seamless wallet. No dependencies.",
   "type": "module",
   "engines": {
     "node": ">=18"
   },
   "license": "MIT",
   "scripts": {
-    "tables": "node list-tables.mjs",
-    "round": "node table-round.mjs",
-    "results": "node results.mjs",
-    "stream": "node stream.mjs"
+    "games": "node list-games.mjs",
+    "launch": "node launch.mjs",
+    "wallet": "node wallet-server.mjs"
   }
 }

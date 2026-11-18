@@ -1,208 +1,190 @@
-# Diamond API examples: casino API for live tables, rounds and results
+# Diamond API examples: casino API integration with seamless wallet
 
-Example code for the **[Diamond API](https://diamondapi.live)**: a **casino API** that connects **Diamond and Mac88 live tables** (Teen Patti 20-20, Lucky 7, 32 Cards, Dragon Tiger Lion, Baccarat and more) to your platform. List tables, follow each round live, show the dealer video and collect results with winning cards and side bet outcomes, over REST and Server-Sent Events. Examples in **Node.js, Python, PHP and curl**, each one a single file you can read in a few minutes.
+Example code for the **[Diamond API](https://diamondapi.live)**, a **casino API** that brings **Diamond live tables, Mac88 tables and virtual games** (Teen Patti 20-20, Lucky 7, 32 Cards, Dragon Tiger Lion, Baccarat and more) to your site through one integration: load the game list, launch a table for a player, and answer our **seamless wallet** calls. Examples in **Node.js, Python, PHP and curl**, each one a single file you can read in a few minutes.
 
-Website: **https://diamondapi.live** · Integration guide: **https://diamondapi.live/diamond-api-integration** · Get a sandbox key: **https://diamondapi.live/telegram**
+Website: **https://diamondapi.live** · Developer guide: **https://diamondapi.live/docs** · Get a sandbox key: **https://diamondapi.live/telegram**
 
 > Diamond API is an independent API provider, not run by or affiliated with Diamond Exchange.
 
-> **Endpoint list on request.** The paths and fields in this repo show how a Diamond API integration works. Your exact endpoint list and fields come with your sandbox key: [message us](https://diamondapi.live/telegram) and we send both.
+> **Full request and response details come with your sandbox key.** The paths and fields in this repo show how the integration works; [message us](https://diamondapi.live/telegram) for a key and the exact details for your plan.
 
 ## Contents
 
-- [What the API does](#what-the-api-does)
+- [How the integration works](#how-the-integration-works)
 - [Quickstart](#quickstart)
 - [The examples](#the-examples)
-- [Tables and rounds](#tables-and-rounds)
-- [Dealer video](#dealer-video)
-- [Following tables live](#following-tables-live)
-- [Results and settlement](#results-and-settlement)
-- [Wallet and bets](#wallet-and-bets)
-- [Sandbox limits and errors](#sandbox-limits-and-errors)
+- [Game list](#game-list)
+- [Launching a table](#launching-a-table)
+- [Your wallet endpoint](#your-wallet-endpoint)
+- [Testing your wallet](#testing-your-wallet)
+- [Errors](#errors)
 - [Running each language](#running-each-language)
 - [Get an API key](#get-an-api-key)
 
-## What the API does
+## How the integration works
 
-One integration brings **50+ Diamond live dealer tables**, **Mac88 tables** and virtual games to your casino site.
+Diamond tables, Mac88 tables and virtual games all use the same flow, so you build it once:
 
-- **REST** for snapshots: list tables with bet limits, fetch one table with the round in play, page through results.
-- **A live stream (SSE)**: one long HTTP response that sends each table in full, then every round change and result as it happens. No WebSocket needed; any HTTP client can read it.
-- **Dealer video**: signed H5 stream links with adaptive bitrate, playable only on your whitelisted domains.
-- **Results**: winning cards and side bet outcomes after each round, kept for you to collect in order.
-- Stable ids: `tb_…` tables, `rd_…` rounds.
-
-The API is for **server-to-server** use. Keys work only from the server IPs you register, so do not call it from a browser or an app.
+1. **Get a sandbox key** and send the IP addresses of your servers. The key is accepted only from them.
+2. **Load the game list** and show it in your own lobby, in your own layout.
+3. **Launch a table**: when a player opens one, your server asks for a launch address; you open it full screen in your site or app.
+4. **Connect your wallet**: the player's balance stays with you. During play we call your wallet endpoint (balance, debit, credit, refund) and you answer with the new balance. We never hold player money.
+5. **Check your results** in your back office, by player and by game.
+6. **Go live** with your live key. The flow and the calls stay the same.
 
 ## Quickstart
 
 ```bash
 export DIAMONDAPI_KEY="fg_test_…"     # your sandbox key, from https://diamondapi.live/telegram
 cd diamondapi-api-examples
-node node/list-tables.mjs              # every table on your plan
-node node/table-round.mjs              # one table: round, bets, odds, video link
-node node/results.mjs                  # results with winning cards, from a saved cursor
-node node/stream.mjs                   # live rounds and results, Ctrl-C to stop
+node node/list-games.mjs                       # every game on your plan
+node node/launch.mjs teen20 player-1           # a launch address for one player
+
+export DIAMONDAPI_WALLET_SECRET="…"   # comes with your key
+node node/wallet-server.mjs                    # your wallet endpoint on :8080/wallet
+curl/wallet-test.sh                            # call it the way we do, retries included
 ```
 
 Node 18 or newer, nothing to install. The same examples exist in Python, PHP and curl: see [Running each language](#running-each-language).
 
-Every example reads the key from `DIAMONDAPI_KEY` and the base URL from `DIAMONDAPI_BASE_URL`, which defaults to the sandbox, `https://api-sandbox.diamondapi.live`. For live, set `DIAMONDAPI_BASE_URL=https://api.diamondapi.live` and use your `fg_live_…` key.
+The API examples read the key from `DIAMONDAPI_KEY` and the base URL from `DIAMONDAPI_BASE_URL`, which defaults to the sandbox, `https://api-sandbox.diamondapi.live`. For live, set `DIAMONDAPI_BASE_URL=https://api.diamondapi.live` and use your `fg_live_…` key.
 
 ## The examples
 
-| What it does | Node.js | Python | PHP | curl + jq |
+| What it does | Node.js | Python | PHP | curl |
 |---|---|---|---|---|
-| List tables with provider, status and bet limits | [list-tables.mjs](node/list-tables.mjs) | [list_tables.py](python/list_tables.py) | [list-tables.php](php/list-tables.php) | [list-tables.sh](curl/list-tables.sh) |
-| One table: the round in play, bets, odds, video link | [table-round.mjs](node/table-round.mjs) | [table_round.py](python/table_round.py) | [table-round.php](php/table-round.php) | [table-round.sh](curl/table-round.sh) |
-| Results in order, with a saved cursor | [results.mjs](node/results.mjs) | [results.py](python/results.py) | [results.php](php/results.php) | [results.sh](curl/results.sh) |
-| Live SSE stream of rounds and results, with resume | [stream.mjs](node/stream.mjs) | [stream.py](python/stream.py) | [stream.php](php/stream.php) | [stream.sh](curl/stream.sh) |
+| Load the game list for your lobby | [list-games.mjs](node/list-games.mjs) | [list_games.py](python/list_games.py) | [list-games.php](php/list-games.php) | [list-games.sh](curl/list-games.sh) |
+| Launch a table for one player | [launch.mjs](node/launch.mjs) | [launch.py](python/launch.py) | [launch.php](php/launch.php) | [launch.sh](curl/launch.sh) |
+| Seamless wallet endpoint: balance, debit, credit, refund | [wallet-server.mjs](node/wallet-server.mjs) | [wallet_server.py](python/wallet_server.py) | [wallet-server.php](php/wallet-server.php) | |
+| Test your wallet endpoint with signed calls | | | | [wallet-test.sh](curl/wallet-test.sh) |
 
-The shared code is small and meant to be copied: [node/lib](node/lib), [python/casino_api.py](python/casino_api.py), [php/lib.php](php/lib.php), [curl/common.sh](curl/common.sh). It handles the key header, gzip, `429 rate_limited` with `Retry-After`, and the stream.
+The shared code is small and meant to be copied: [node/lib/api.mjs](node/lib/api.mjs), [python/casino_api.py](python/casino_api.py), [php/lib.php](php/lib.php), [curl/common.sh](curl/common.sh). It handles the key header, gzip and `429 rate_limited` with `Retry-After`.
 
-## Tables and rounds
+## Game list
 
-`GET /v1/casino/tables` lists the tables on your plan; add `provider=diamond` or `provider=mac88` to filter.
-
-```json
-{ "tables": [
-  { "id": "tb_teen20", "name": "Teen Patti 20-20", "provider": "diamond", "game": "teen20",
-    "status": "OPEN", "minBet": 100, "maxBet": 100000 } ] }
-```
-
-| Table `status` | Meaning |
-|---|---|
-| `OPEN` | Dealing rounds. |
-| `CLOSED` | Not dealing now. |
-| `MAINTENANCE` | Paused by the studio. |
-
-`GET /v1/casino/tables/{id}` adds the round in play and the video link. Each round moves through three states:
-
-| Round `status` | Meaning | What to do |
-|---|---|---|
-| `BETTING` | Bets are open until `closesAt`. | Take bets on markets whose `status` is `OPEN`. |
-| `CLOSED` | Cards are being dealt. | Take no bets. |
-| `RESULT` | The round is decided; its result follows. | Settle. A new round opens next. |
-
-Each market has a name (Player A, Player B, Pair Plus…), decimal `odds` and its own `status`. Take bets only while the round is `BETTING`, before `closesAt`, on `OPEN` markets.
-
-## Dealer video
-
-The table carries `stream.url`, an H5 link with adaptive bitrate for HD dealer video, and `stream.expiresAt`. The link is signed: it plays only on the domains you whitelist with us and expires, so fetch a fresh one for each player session rather than storing it.
-
-## Following tables live
-
-`GET /v1/casino/stream?tables=tb_a,tb_b` is a Server-Sent Events stream. On connect you get a `snapshot` of each table, then `ready`, then changes:
-
-| Message | Data | What to do |
-|---|---|---|
-| `snapshot` | A whole table with its round | Store it (replace any copy you hold). |
-| `ready` | | The opening snapshots are done. |
-| `round` | `{"table", "round"}` | Replace your copy of that table's round. |
-| `result` | A result entry | Settle. See [Results](#results-and-settlement). |
-| `reconnect` | | Close and reconnect **now**, with your last id. |
-| `error` | `{"code", "message"}` | The stream closes, for example a revoked key. Do not retry blindly. |
-
-To keep one stream running for days, each example:
-
-1. **Resumes with `Last-Event-ID`.** Every message has an `id`. Send the last one back when you reconnect and you receive what you missed, results included.
-2. **Reconnects on `reconnect`**, which the server sends before it rotates a stream.
-3. **Watches the heartbeat.** A `: heartbeat` comment arrives every 15 s; nothing for 45 s means the connection is dead.
-4. **Backs off on failure** with the stream's `retry:` hint plus jitter, and stops on `400`, `401`, `403` and `error`, which retrying cannot fix.
-
-The Node, Python and PHP examples parse SSE themselves in one commented function each, so you need no SSE library.
-
-## Results and settlement
-
-`GET /v1/casino/results?since=<cursor>` lists results in order, oldest first; add `table=tb_…` for one table. Each entry:
+`GET /v1/games` returns every game on your plan; add `provider=diamond` or `provider=mac88` to filter. Each game has an id, a name, a provider, a category and artwork for your lobby tile:
 
 ```json
-{ "seq": 1842, "action": "SETTLED", "table": { "id": "tb_teen20", "name": "Teen Patti 20-20" },
-  "round": "rd_8f2k1", "winner": "Player A", "cards": ["AS", "KH", "7D"],
-  "sideBets": [{ "name": "Pair Plus A", "outcome": "lost" }] }
+{ "games": [
+  { "id": "teen20", "name": "Teen Patti 20-20", "provider": "diamond", "category": "teen-patti",
+    "image": "https://…/teen20.jpg" } ] }
 ```
 
-| `action` | What to do |
-|---|---|
-| `SETTLED` | Settle bets on the round. |
-| `CORRECTED` | Re-settle to the new result. |
-| `VOIDED` | Refund stakes. |
+## Launching a table
 
-Settle by round id, so a result you see twice (on the stream and in the list) is applied once. Page with `since=<next>` and call again at once while `more` is true; [results](node/results.mjs) saves its cursor to `.results-cursor`, so each run continues from the last.
+When a player opens a table, your server asks for a launch address for that player and game:
 
-## Wallet and bets
+```json
+POST /v1/launch
+{ "gameId": "teen20", "playerId": "player-1", "currency": "INR", "returnUrl": "https://your-site.example/lobby" }
 
-Diamond and Mac88 tables share **one wallet, one bet history and one report**. How bets reach the table and how your wallet is debited and credited is set up with you during integration, to fit your platform. [Message us](https://diamondapi.live/telegram) and we walk through it.
+{ "url": "https://…", "expiresAt": "2026-11-18T12:00:00Z" }
+```
 
-## Sandbox limits and errors
+Open `url` full screen. It works in a desktop browser, a phone browser and an Android or iOS WebView. The address is for that player only and expires, so ask for a new one each time a table is opened; never share or store it.
 
-The sandbox, `https://api-sandbox.diamondapi.live`, is for building, not for running a site. A sandbox key opens 1 stream at a time with up to 5 tables listed by id (`tables=all` needs a live key) and makes up to 2 requests per second; the helpers here space requests 0.55 s apart and retry `429 rate_limited`. `GET /v1/me` shows the limits your key has.
+## Your wallet endpoint
 
-Errors are JSON, `{"code", "message"}`, and every response carries `X-Request-Id`: quote it when you contact us.
+The player's balance stays in your wallet. During play we `POST` to your wallet endpoint and you answer with the new balance:
+
+| `action` | When | What you do |
+|---|---|---|
+| `balance` | The table opens or refreshes | Return the balance. |
+| `debit` | A bet is placed | Take `amount` if the player has it; otherwise answer `INSUFFICIENT_FUNDS`. |
+| `credit` | A round is settled and the player won | Add `amount`. |
+| `refund` | A round is cancelled | Give back what the debit `refTxId` took. |
+
+```json
+{ "action": "debit", "txId": "d1-8f2k", "playerId": "player-1", "amount": 5000, "gameId": "teen20", "roundId": "r1" }
+
+{ "status": "OK", "balance": 95000 }
+```
+
+Amounts are integers in the smallest unit (paise), never floats. Three rules keep your balances right even when the network is not:
+
+1. **Check the signature first.** Every call is signed with your wallet secret (`X-Signature`, an HMAC-SHA256 of the raw body in the examples). Refuse anything unsigned or wrongly signed with `401`.
+2. **Safe to retry.** Every call carries a `txId`. If a call is repeated after a timeout, answer it with the same result and do not move the money twice.
+3. **A refund cancels its debit.** Give back what the debit took. If the refund arrives first, nothing moves, and the late debit is refused.
+
+A bet your wallet does not confirm is not accepted. A win or a refund is sent again until your wallet confirms it.
+
+The wallet examples keep balances in memory (PHP: in a locked file) so they run on their own. In production, make each change and its `txId` one database transaction, with `txId` unique.
+
+## Testing your wallet
+
+[curl/wallet-test.sh](curl/wallet-test.sh) calls your wallet endpoint the way we do: a balance, a debit, the same debit again, a credit, a debit and its refund, a refund that arrives before its debit, and a wrongly signed call. It needs no API key, only your wallet secret:
+
+```bash
+DIAMONDAPI_WALLET_SECRET="…" curl/wallet-test.sh http://localhost:8080/wallet player-1
+```
+
+```
+{"action":"debit","txId":"d1-…","amount":5000}    -> {"status":"OK","balance":95000}
+retry of the same debit: the answer must match and the balance must not drop again
+{"action":"debit","txId":"d1-…","amount":5000}    -> {"status":"OK","balance":95000}
+…
+a call with a wrong signature must be refused (401)
+401
+```
+
+## Errors
+
+API errors are JSON, `{"code", "message"}`, and every response carries `X-Request-Id`: quote it when you contact us.
 
 | Status | `code` | Meaning |
 |---|---|---|
 | 400 | `bad_request` | A parameter is wrong; the message says which. |
 | 401 | `unauthorized` | No key, or a key we do not know. |
 | 403 | `forbidden` | The IP is not on your allowlist, or the key is for the other environment. |
-| 404 | `not_found` | No such id, or not one of yours. |
-| 429 | `rate_limited` / `too_many_streams` | Too many requests, or all stream slots in use. |
+| 404 | `not_found` | No such game. |
+| 429 | `rate_limited` | Too many requests; retry after `Retry-After`. |
 | 503 | `starting` / `maintenance` | Retry in a few seconds / planned maintenance. |
 
 ## Running each language
 
-Set your key once (or copy [.env.example](.env.example) to `.env` and load it with `set -a; . ./.env; set +a`):
-
-```bash
-export DIAMONDAPI_KEY="fg_test_…"
-# optional: export DIAMONDAPI_BASE_URL=https://api.diamondapi.live   (live key)
-```
+Set your key once (or copy [.env.example](.env.example) to `.env` and load it with `set -a; . ./.env; set +a`).
 
 **Node.js 18+**, no dependencies:
 
 ```bash
-node node/list-tables.mjs [diamond | mac88]
-node node/table-round.mjs [tb_…]
-node node/results.mjs [tb_…]
-node node/stream.mjs [tb_a,tb_b | all]
+node node/list-games.mjs [diamond | mac88]
+node node/launch.mjs <gameId> <playerId>
+node node/wallet-server.mjs
 ```
 
-**Python 3.8+**, needs only `requests`:
+**Python 3.8+**, `requests` for the API examples; the wallet server uses only the standard library:
 
 ```bash
 pip install -r python/requirements.txt
-python python/list_tables.py [diamond | mac88]
-python python/table_round.py [tb_…]
-python python/results.py [tb_…]
-python python/stream.py [tb_a,tb_b | all]
+python python/list_games.py [diamond | mac88]
+python python/launch.py <gameId> <playerId>
+python python/wallet_server.py
 ```
 
 **PHP 8.0+** with the curl extension:
 
 ```bash
-php php/list-tables.php [diamond | mac88]
-php php/table-round.php [tb_…]
-php php/results.php [tb_…]
-php php/stream.php [tb_a,tb_b | all]
+php php/list-games.php [diamond | mac88]
+php php/launch.php <gameId> <playerId>
+php -S 0.0.0.0:8080 php/wallet-server.php
 ```
 
-**curl + bash**, needs `jq`. The key is passed to curl through a header file or stdin, never on the command line:
+**curl + bash**, needs `jq` (and `openssl` for the wallet test). The key is passed to curl on stdin, never on the command line:
 
 ```bash
-curl/list-tables.sh [diamond | mac88]
-curl/table-round.sh [tb_…]
-curl/results.sh [tb_…]
-curl/stream.sh [tb_a,tb_b | all]
+curl/list-games.sh [diamond | mac88]
+curl/launch.sh <gameId> <playerId>
+curl/wallet-test.sh [walletUrl] [playerId]
 ```
 
 ## Get an API key
 
-1. Message us at **https://diamondapi.live/telegram** with the server IPs you will call from and the domains that will show the video.
-2. We send a sandbox key (`fg_test_…`) with your endpoint list. The key is shown once; store it safely.
-3. Build against the sandbox with these examples.
-4. When you are ready, ask for a live key (`fg_live_…`) for `https://api.diamondapi.live`. Integration usually takes under 48 hours, with 24/7 support.
+1. Message us at **https://diamondapi.live/telegram** with the IP addresses of your servers and your wallet endpoint URL.
+2. We send a sandbox key (`fg_test_…`), your wallet secret and the full request and response details. The key is shown once; store it safely.
+3. Build against the sandbox with these examples, and test every table type.
+4. When you are ready, ask for a live key (`fg_live_…`). Integration usually takes under 48 hours, with 24/7 support.
 
-Keep keys on your servers, in an environment variable or a secret store, never in code or in a URL. More at **https://diamondapi.live**.
+Keep keys and the wallet secret on your servers, in environment variables or a secret store, never in code or in a URL. More at **https://diamondapi.live**.
 
 ## License
 
